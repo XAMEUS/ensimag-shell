@@ -33,6 +33,8 @@ typedef struct list_bg {
     struct list_bg * next;
 } list_bg;
 
+static list_bg *bg = NULL;
+
 void add_bg(list_bg **l, pid_t pid) {
 	list_bg *e;
     e = malloc(sizeof(list_bg));
@@ -68,21 +70,15 @@ void print_bg(list_bg *bg) {
     }
 }
 
-void refresh_bg(list_bg **bg) {
+void refresh_bg(list_bg **bg, pid_t r) {
 	struct list_bg *current = *bg;
 	struct list_bg *prev = NULL;
 	while(current != NULL) {
-		int status;
-		int r = waitpid(current->pid, &status, WNOHANG);
-		if(!r) {
-			printf("%d\n", current->pid);
+		printf("+ %d : done [%d]\n", current->pid, r);
+		if(prev == NULL) {
+			*bg = current->next;
 		} else {
-			printf("+ %d : done [%d]\n", current->pid, r);
-			if(prev == NULL) {
-				*bg = current->next;
-			} else {
-				prev->next = current->next;
-			}
+			prev->next = current->next;
 		}
 		prev = current;
 		current = current->next;
@@ -110,6 +106,10 @@ SCM executer_wrapper(SCM x)
 }
 #endif
 
+void handler_child_exit(int sig) {
+	refresh_bg(&bg, wait(NULL));
+	signal(SIGCHLD, handler_child_exit);
+}
 
 void terminate(char *line) {
 #if USE_GNU_READLINE == 1
@@ -126,7 +126,7 @@ void terminate(char *line) {
 int main() {
         printf("Variante %d: %s\n", VARIANTE, VARIANTE_STRING);
 
-		list_bg *bg = NULL;
+		signal(SIGCHLD, handler_child_exit);
 
 #if USE_GUILE == 1
         scm_init_guile();
@@ -198,6 +198,10 @@ int main() {
                                 printf("'%s' ", cmd[j]);
                         }
 			printf("\n");
+	if (strcmp(*l->seq[i], "jobs") == 0) {
+		print_bg(bg);
+		break;
+	}
       if(len_l > 1) {
         if(i > 0) {
           pipefd[0][0] = pipefd[1][0];
@@ -214,32 +218,34 @@ int main() {
           perror("fork");
           break;
         case 0:
-          if(len_l > 1 && i < len_l - 1) { //stdout
-            fprintf(stderr, "redirection out %d %d \n", pipefd[1][0], pipefd[1][1]);
-            dup2(pipefd[1][1], 1);
-            close(pipefd[1][0]);
-            close(pipefd[1][1]);
-          }
-          if(len_l > 1 && i > 0) { //stdin
-            fprintf(stderr, "redirection in %d %d \n", pipefd[0][0], pipefd[0][1]);
-            dup2(pipefd[0][0], 0);
-            close(pipefd[1][0]);
-            close(pipefd[1][1]);
-          }
+			if(len_l > 1) {
+				if(i > 0) { //stdin
+					fprintf(stderr, "redirection in %d %d \n", pipefd[0][0], pipefd[0][1]);
+					dup2(pipefd[0][0], 0);
+				}
+				if(i < len_l - 1) { //stdout
+					fprintf(stderr, "redirection out %d %d \n", pipefd[1][0], pipefd[1][1]);
+					dup2(pipefd[1][1], 1);
+				}
+				close(pipefd[1][0]);
+				close(pipefd[1][1]);
+			}
           if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
             perror("execvp");
             exit(EXIT_FAILURE);
           }
         default:
         {
-		if (strcmp(*l->seq[i], "jobs") == 0) {
-			refresh_bg(&bg);
-		}
+			if (len_l > 1 && i > 0) {
+				close(pipefd[0][0]);
+				close(pipefd[0][1]);
+			}
           int status;
           printf("%d, je suis ton père\n", pid);
-          if(!l->bg)
-			 waitpid(pid, &status, 0);
-		  else
+          if(!l->bg && i == len_l - 1) {
+			  waitpid(pid, &status, 0);
+		  }
+		  if(l->bg)
 		  	add_bg(&bg, pid);
           break;
         }
