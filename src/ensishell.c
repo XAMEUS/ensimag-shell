@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "variante.h"
 #include "readcmd.h"
@@ -36,7 +39,7 @@ int question6_executer(char *line)
 
 	/* Remove this line when using parsecmd as it will free it */
 	free(line);
-	
+
 	return 0;
 }
 
@@ -72,7 +75,7 @@ int main() {
 		struct cmdline *l;
 		char *line=0;
 		int i, j;
-		char *prompt = "ensishell>";
+		char *prompt = "ensishell> ";
 
 		/* Readline use some internal memory structure that
 		   can not be cleaned at the end of the program. Thus
@@ -103,12 +106,12 @@ int main() {
 
 		/* If input stream closed, normal termination */
 		if (!l) {
-		  
+
 			terminate(0);
 		}
-		
 
-		
+
+
 		if (l->err) {
 			/* Syntax error, read another command */
 			printf("error: %s\n", l->err);
@@ -127,7 +130,22 @@ int main() {
                                 printf("'%s' ", cmd[j]);
                         }
 			printf("\n");
+      pid_t pid;
+      switch(pid = fork()) {
+        case -1:
+          perror("fork:");
+          break;
+        case 0:
+          execvp(*l->seq[i], (char * const*) l->seq[i]);
+          break;
+        default:
+        {
+          int status;
+          printf("%d, je suis ton père\n", pid);
+          waitpid(pid, &status, 0);
+          break;
+        }
+      }
+    }
 		}
-	}
-
 }
