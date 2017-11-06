@@ -134,7 +134,7 @@ int main() {
       switch(pid = fork()) {
         case -1:
           perror("fork");
-          exit(-1);
+          break;
         case 0:
           if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
             perror("execvp");
@@ -144,7 +144,7 @@ int main() {
         {
           int status;
           printf("%d, je suis ton père\n", pid);
-          if(!l->bg || i)
+          if(!l->bg)
             waitpid(pid, &status, 0);
           break;
         }
