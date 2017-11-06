@@ -133,16 +133,19 @@ int main() {
       pid_t pid;
       switch(pid = fork()) {
         case -1:
-          perror("fork:");
-          break;
+          perror("fork");
+          exit(-1);
         case 0:
-          execvp(*l->seq[i], (char * const*) l->seq[i]);
-          break;
+          if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
+            perror("execvp");
+            exit(-1);
+          }
         default:
         {
           int status;
           printf("%d, je suis ton père\n", pid);
-          waitpid(pid, &status, 0);
+          if(!l->bg || i)
+            waitpid(pid, &status, 0);
           break;
         }
       }
