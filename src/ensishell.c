@@ -121,24 +121,51 @@ int main() {
 		if (l->in) printf("in: %s\n", l->in);
 		if (l->out) printf("out: %s\n", l->out);
 		if (l->bg) printf("background (&)\n");
-
-		/* Display each command of the pipe */
+    int len_l = 0;
+    while(l->seq[len_l]!=0) len_l++;
+    // int *pipefd_all;
+    // if (len_l > 1)
+    //   pipefd_all = malloc(sizeof(int) * 2 * (len_l - 1));
+    int pipefd[2][2]; //pipefd[0] in, [1] out (child)
 		for (i=0; l->seq[i]!=0; i++) {
+      /* Display each command of the pipe */
 			char **cmd = l->seq[i];
 			printf("seq[%d]: ", i);
                         for (j=0; cmd[j]!=0; j++) {
                                 printf("'%s' ", cmd[j]);
                         }
 			printf("\n");
+      if(len_l > 1) {
+        if(i > 0) {
+          pipefd[0][0] = pipefd[1][0];
+          pipefd[0][1] = pipefd[1][1];
+        }
+        if(i < len_l - 1 && pipe(pipefd[1]) == -1) {
+          perror("pipe");
+          break;
+        }
+      }
       pid_t pid;
       switch(pid = fork()) {
         case -1:
           perror("fork");
           break;
         case 0:
+          if(len_l > 1 && i < len_l - 1) { //stdout
+            fprintf(stderr, "redirection out %d %d \n", pipefd[1][0], pipefd[1][1]);
+            dup2(pipefd[1][1], 1);
+            close(pipefd[1][0]);
+            close(pipefd[1][1]);
+          }
+          if(len_l > 1 && i > 0) { //stdin
+            fprintf(stderr, "redirection in %d %d \n", pipefd[0][0], pipefd[0][1]);
+            dup2(pipefd[0][0], 0);
+            close(pipefd[1][0]);
+            close(pipefd[1][1]);
+          }
           if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
             perror("execvp");
-            exit(-1);
+            exit(EXIT_FAILURE);
           }
         default:
         {
@@ -150,5 +177,5 @@ int main() {
         }
       }
     }
-		}
+	}
 }
