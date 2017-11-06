@@ -197,20 +197,20 @@ int main() {
       switch(pid = fork()) {
         case -1:
           perror("fork");
-          exit(-1);
+          break;
         case 0:
-		if (strcmp(*l->seq[i], "jobs") == 0) {
-			refresh_bg(bg);
-		}
-         else if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
+         if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
             perror("execvp");
             exit(-1);
           }
         default:
         {
+		if (strcmp(*l->seq[i], "jobs") == 0) {
+			refresh_bg(bg);
+		}
           int status;
           printf("%d, je suis ton père\n", pid);
-          if(!l->bg || i)
+          if(!l->bg)
 			 waitpid(pid, &status, 0);
 		  else
 		  	add_bg(&bg, pid);
