@@ -68,8 +68,8 @@ void print_bg(list_bg *bg) {
     }
 }
 
-void refresh_bg(list_bg *bg) {
-	struct list_bg *current = bg;
+void refresh_bg(list_bg **bg) {
+	struct list_bg *current = *bg;
 	struct list_bg *prev = NULL;
 	while(current != NULL) {
 		int status;
@@ -79,7 +79,7 @@ void refresh_bg(list_bg *bg) {
 		} else {
 			printf("+ %d : done [%d]\n", current->pid, r);
 			if(prev == NULL) {
-				bg = current->next;
+				*bg = current->next;
 			} else {
 				prev->next = current->next;
 			}
@@ -206,7 +206,7 @@ int main() {
         default:
         {
 		if (strcmp(*l->seq[i], "jobs") == 0) {
-			refresh_bg(bg);
+			refresh_bg(&bg);
 		}
           int status;
           printf("%d, je suis ton père\n", pid);
