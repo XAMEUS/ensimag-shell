@@ -28,6 +28,67 @@
 #if USE_GUILE == 1
 #include <libguile.h>
 
+typedef struct list_bg {
+    pid_t pid;
+    struct list_bg * next;
+} list_bg;
+
+void add_bg(list_bg **l, pid_t pid) {
+	list_bg *e;
+    e = malloc(sizeof(list_bg));
+    e->pid = pid;
+    e->next = *l;
+    *l = e;
+}
+
+void rm_bg(list_bg *l, pid_t pid) {
+	if (l == NULL) return;
+	if (l->pid == pid) {
+		list_bg *e = l;
+		*l = *l->next;
+		free(e);
+		return;
+	}
+	list_bg * current = l;
+    while (current->next != NULL && current->next->pid != pid) {
+        current = current->next;
+    }
+	if (current->next->pid == pid) {
+		list_bg *e = current;
+		e->next = e->next->next;
+		free(e);
+	}
+}
+
+void print_bg(list_bg *bg) {
+    list_bg * current = bg;
+    while (current != NULL) {
+        printf("%d\n", current->pid);
+        current = current->next;
+    }
+}
+
+void refresh_bg(list_bg **bg) {
+	struct list_bg *current = *bg;
+	struct list_bg *prev = NULL;
+	while(current != NULL) {
+		int status;
+		int r = waitpid(current->pid, &status, WNOHANG);
+		if(!r) {
+			printf("%d\n", current->pid);
+		} else {
+			printf("+ %d : done [%d]\n", current->pid, r);
+			if(prev == NULL) {
+				*bg = current->next;
+			} else {
+				prev->next = current->next;
+			}
+		}
+		prev = current;
+		current = current->next;
+	}
+}
+
 int question6_executer(char *line)
 {
 	/* Question 6: Insert your code to execute the command line
@@ -64,6 +125,8 @@ void terminate(char *line) {
 
 int main() {
         printf("Variante %d: %s\n", VARIANTE, VARIANTE_STRING);
+
+		list_bg *bg = NULL;
 
 #if USE_GUILE == 1
         scm_init_guile();
@@ -169,13 +232,18 @@ int main() {
           }
         default:
         {
+		if (strcmp(*l->seq[i], "jobs") == 0) {
+			refresh_bg(&bg);
+		}
           int status;
           printf("%d, je suis ton père\n", pid);
           if(!l->bg)
-            waitpid(pid, &status, 0);
+			 waitpid(pid, &status, 0);
+		  else
+		  	add_bg(&bg, pid);
           break;
         }
       }
     }
-	}
+  }
 }
