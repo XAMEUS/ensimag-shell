@@ -30,14 +30,17 @@
 
 typedef struct list_bg {
     pid_t pid;
+	char* cmd;
     struct list_bg * next;
 } list_bg;
 
 static list_bg *bg = NULL;
 
-void add_bg(list_bg **l, pid_t pid) {
+void add_bg(list_bg **l, char* cmd, pid_t pid) {
 	list_bg *e;
     e = malloc(sizeof(list_bg));
+	e->cmd = malloc(sizeof(char) * strlen(&cmd[0]));
+	strcpy(e->cmd, &cmd[0]);
     e->pid = pid;
     e->next = *l;
     *l = e;
@@ -65,7 +68,7 @@ void rm_bg(list_bg *l, pid_t pid) {
 void print_bg(list_bg *bg) {
     list_bg * current = bg;
     while (current != NULL) {
-        printf("%d\n", current->pid);
+        printf("%d %s\n", current->pid, current->cmd);
         current = current->next;
     }
 }
@@ -74,11 +77,15 @@ void refresh_bg(list_bg **bg, pid_t r) {
 	struct list_bg *current = *bg;
 	struct list_bg *prev = NULL;
 	while(current != NULL) {
-		printf("+ %d : done [%d]\n", current->pid, r);
-		if(prev == NULL) {
-			*bg = current->next;
-		} else {
-			prev->next = current->next;
+		if (r == current->pid) {
+			printf("+ %s : done [%d]\n", current->cmd, current->pid);
+			if(prev == NULL) {
+				*bg = current->next;
+			} else {
+				prev->next = current->next;
+			}
+			free(current);
+			break;
 		}
 		prev = current;
 		current = current->next;
@@ -246,7 +253,7 @@ int main() {
 			  waitpid(pid, &status, 0);
 		  }
 		  if(l->bg)
-		  	add_bg(&bg, pid);
+		  	add_bg(&bg, *(l->seq[0]), pid);
           break;
         }
       }
