@@ -227,8 +227,8 @@ int main() {
 					fprintf(stderr, "redirection out %d %d \n", pipefd[1][0], pipefd[1][1]);
 					dup2(pipefd[1][1], 1);
 				}
-				close(pipefd[1][0]);
-				close(pipefd[1][1]);
+				close(pipefd[0][0]);
+				close(pipefd[0][1]);
 			}
           if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
             perror("execvp");
