@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 #include "variante.h"
 #include "readcmd.h"
@@ -186,10 +189,10 @@ int main() {
 		if (l->bg) printf("background (&)\n");
     int len_l = 0;
     while(l->seq[len_l]!=0) len_l++;
-    // int *pipefd_all;
-    // if (len_l > 1)
-    //   pipefd_all = malloc(sizeof(int) * 2 * (len_l - 1));
-    int pipefd[2][2]; //pipefd[0] in, [1] out (child)
+    int pipefd[2][2];
+    int f_in = 0, f_out = 0;
+    if(l->in) f_in = open(l->in, O_RDONLY);
+    if(l->out) f_out = open(l->out, O_WRONLY | O_CREAT, 0777);
 		for (i=0; l->seq[i]!=0; i++) {
       /* Display each command of the pipe */
 			char **cmd = l->seq[i];
@@ -230,6 +233,8 @@ int main() {
 					dup2(pipefd[1][1], 1);
 				}
 			}
+            if(!i && l->in) dup2(f_in, 0);
+            if(i == len_l - 1 && l->out) dup2(f_out, 1);
           if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
             perror("execvp");
             exit(EXIT_FAILURE);
@@ -250,6 +255,8 @@ int main() {
           break;
         }
       }
+      if(l->in) close(f_in);
+      if(l->out) close(f_out);
     }
   }
 }
