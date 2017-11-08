@@ -22,15 +22,6 @@
 #error "Variante non défini !!"
 #endif
 
-/* Guile (1.8 and 2.0) is auto-detected by cmake */
-/* To disable Scheme interpreter (Guile support), comment the
- * following lines.  You may also have to comment related pkg-config
- * lines in CMakeLists.txt.
- */
-
-#if USE_GUILE == 1
-#include <libguile.h>
-
 typedef struct list_bg {
     pid_t pid;
 	char* cmd;
@@ -94,6 +85,16 @@ void refresh_bg(list_bg **bg, pid_t r) {
 		current = current->next;
 	}
 }
+
+
+/* Guile (1.8 and 2.0) is auto-detected by cmake */
+/* To disable Scheme interpreter (Guile support), comment the
+ * following lines.  You may also have to comment related pkg-config
+ * lines in CMakeLists.txt.
+ */
+
+#if USE_GUILE == 1
+#include <libguile.h>
 
 int question6_executer(char *line)
 {
