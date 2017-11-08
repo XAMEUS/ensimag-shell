@@ -13,7 +13,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <signal.h>
 
 #include "variante.h"
 #include "readcmd.h"
@@ -29,6 +29,7 @@ typedef struct list_bg {
 } list_bg;
 
 static list_bg *bg = NULL;
+static int wait_pid = 0;
 
 void add_bg(list_bg **l, char* cmd, pid_t pid) {
     list_bg *e;
@@ -118,8 +119,10 @@ SCM executer_wrapper(SCM x)
 #endif
 
 void handler_child_exit(int sig) {
-    refresh_bg(&bg, wait(NULL));
+    int pid = wait(NULL);
+    refresh_bg(&bg, pid);
     signal(SIGCHLD, handler_child_exit);
+    wait_pid *= wait_pid!=pid;
 }
 
 void terminate(char *line) {
@@ -262,14 +265,14 @@ int main() {
                 }
                 default:
                 {
+                    wait_pid = pid;
                     if (len_l > 1 && i > 0) {
                         close(pipefd[0][0]);
                         close(pipefd[0][1]);
                     }
-                    int status;
                     printf("%d, je suis ton père\n", pid);
                     if(!l->bg && i == len_l - 1) {
-                        waitpid(pid, &status, 0);
+                        while(wait_pid) pause();
                     }
                     if(l->bg)
                     add_bg(&bg, *(l->seq[0]), pid);
