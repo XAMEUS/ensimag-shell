@@ -144,7 +144,7 @@ int main() {
     /* register "executer" function in scheme */
     scm_c_define_gsubr("executer", 1, 0, 0, executer_wrapper);
     #endif
-
+    int f_in = 0, f_out = 0;
     while (1) {
         struct cmdline *l;
         char *line=0;
@@ -197,10 +197,21 @@ int main() {
         if (l->bg) printf("background (&)\n");
         int len_l = 0;
         while(l->seq[len_l]!=0) len_l++;
+
         int pipefd[2][2];
-        int f_in = 0, f_out = 0;
+        if(f_in) {
+            fsync(f_in);
+            close(f_in);
+            f_in = 0;
+        }
+        if(f_out) {
+            fsync(f_out);
+            close(f_out);
+            f_out = 0;
+        }
         if(l->in) f_in = open(l->in, O_RDONLY);
-        if(l->out) f_out = open(l->out, O_WRONLY | O_CREAT, 0777);
+        if(l->out) f_out = open(l->out, O_WRONLY | O_CREAT, 0644);
+
         for (i=0; l->seq[i]!=0; i++) {
             /* Display each command of the pipe */
             char **cmd = l->seq[i];
@@ -242,7 +253,9 @@ int main() {
                     }
                 }
                 if(!i && l->in) dup2(f_in, 0);
-                if(i == len_l - 1 && l->out) dup2(f_out, 1);
+                if(i == len_l - 1 && l->out)
+                { ;
+                    fprintf(stderr,"OK! %d\n", dup2(f_out, 1));}
                 if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
                     perror("execvp");
                     exit(EXIT_FAILURE);
@@ -260,11 +273,8 @@ int main() {
                     }
                     if(l->bg)
                     add_bg(&bg, *(l->seq[0]), pid);
-                    break;
                 }
             }
-            if(l->in) close(f_in);
-            if(l->out) close(f_out);
         }
     }
 }
