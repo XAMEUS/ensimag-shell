@@ -106,10 +106,9 @@ int question6_executer(char *line)
     * parsecmd, then fork+execvp, for a single command.
     * pipe and i/o redirection are not required.
     */
-    int a = parsecmd(&line)->seq[0];
-    executecommand(parsecmd(&line)->seq[0], 1, 1, 0, NULL, NULL, NULL);
-    /* Remove this line when using parsecmd as it will free it */
-    // free(line);
+    char** a = parsecmd(&line)->seq[0];
+    executecommand(a, 1, 0, 0, NULL, NULL, NULL);
+    // free(*a);
 
     return 0;
 }
