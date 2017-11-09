@@ -137,24 +137,24 @@ void terminate(char *line) {
     exit(0);
 }
 
-void executecommand(char **cmd, int i, int len_l, int bg, int pipefd[2][2], int *f_in, int *f_out) {
+void executecommand(char **cmd, int i, int max_i, int bg, int (*pipefd)[2][2], int *f_in, int *f_out) {
     pid_t pid;
     switch(pid = fork()) {
         case -1:
         perror("fork");
         break;
         case 0:
-        if(len_l > 1) {
+        if(max_i > 0) {
             if(i > 0) { //stdin
-                dup2(pipefd[0][0], 0);
-                close(pipefd[0][0]);
-                close(pipefd[0][1]);
+                dup2((*pipefd)[0][0], 0);
+                close((*pipefd)[0][0]);
+                close((*pipefd)[0][1]);
             }
             //stdout
-            if(i < len_l - 1) dup2(pipefd[1][1], 1);
+            if(i < max_i) dup2((*pipefd)[1][1], 1);
         }
         if(!i && f_in) dup2(*f_in, 0);
-        if(i == len_l - 1 && f_out) dup2(*f_out, 1);
+        if(i == max_i && f_out) dup2(*f_out, 1);
         if(execvp(*cmd, (char * const*) cmd) == -1 ) {
             perror("execvp");
             exit(EXIT_FAILURE);
@@ -162,11 +162,11 @@ void executecommand(char **cmd, int i, int len_l, int bg, int pipefd[2][2], int 
         default:
         {
             if(!bg) add_list_proc(&l_fg, *cmd,pid);
-            if (len_l > 1 && i > 0) {
-                close(pipefd[0][0]);
-                close(pipefd[0][1]);
+            if (max_i > 0 && i > 0) {
+                close((*pipefd)[0][0]);
+                close((*pipefd)[0][1]);
             }
-            if(!bg && i == len_l - 1) while(l_fg) pause();
+            if(!bg && i == max_i) while(l_fg) pause();
             if(bg) add_list_proc(&l_bg, *cmd, pid);
         }
     }
@@ -267,7 +267,7 @@ int main() {
                     break;
                 }
             }
-            executecommand(l->seq[i], i, len_l, l->bg, pipefd, f_in, f_out);
+            executecommand(l->seq[i], i, len_l - 1, l->bg, &pipefd, f_in, f_out);
         }
         if(f_in) {
             free(f_in);
