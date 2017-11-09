@@ -31,6 +31,8 @@ typedef struct list_proc {
 static list_proc *l_bg = NULL;
 static list_proc *l_fg = NULL;
 
+void executecommand(char **cmd, int i, int len_l, int bg, int pipefd[2][2], int *f_in, int *f_out);
+
 void add_list_proc(list_proc **l, char* cmd, pid_t pid) {
     list_proc *e;
     e = malloc(sizeof(list_proc));
@@ -106,7 +108,7 @@ int question6_executer(char *line)
     */
     printf("Not implemented yet: can not execute %s\n", line);
     int pipefd[2][2];
-    executecommand(parsecmd(line), 1, 1, 0, pipefd, NULL, NULL);
+    executecommand(parsecmd(&line)->seq[0], 1, 1, 0, pipefd, NULL, NULL);
     /* Remove this line when using parsecmd as it will free it */
     // free(line);
 
