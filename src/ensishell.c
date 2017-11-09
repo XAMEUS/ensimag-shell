@@ -30,7 +30,6 @@ typedef struct list_proc {
 
 static list_proc *bg = NULL;
 static list_proc *fg = NULL;
-static int wait_pid = 0;
 
 void add_list_proc(list_proc **l, char* cmd, pid_t pid) {
     list_proc *e;
@@ -122,8 +121,8 @@ SCM executer_wrapper(SCM x)
 void handler_child_exit(int sig) {
     int pid = wait(NULL);
     refresh_list_proc(&bg, pid);
+    refresh_list_proc(&fg, pid);
     signal(SIGCHLD, handler_child_exit);
-    wait_pid *= wait_pid!=pid;
 }
 
 void terminate(char *line) {
@@ -152,7 +151,7 @@ int main() {
     while (1) {
         struct cmdline *l;
         char *line=0;
-        int i, j;
+        int i;
         char *prompt = "ensishell> ";
 
         /* Readline use some internal memory structure that
@@ -195,10 +194,6 @@ int main() {
             printf("error: %s\n", l->err);
             continue;
         }
-
-        if (l->in) printf("in: %s\n", l->in);
-        if (l->out) printf("out: %s\n", l->out);
-        if (l->bg) printf("background (&)\n");
         int len_l = 0;
         while(l->seq[len_l]!=0) len_l++;
 
@@ -217,13 +212,6 @@ int main() {
         if(l->out) f_out = open(l->out, O_WRONLY | O_CREAT, 0644);
 
         for (i=0; l->seq[i]!=0; i++) {
-            /* Display each command of the pipe */
-            char **cmd = l->seq[i];
-            printf("seq[%d]: ", i);
-            for (j=0; cmd[j]!=0; j++) {
-                printf("'%s' ", cmd[j]);
-            }
-            printf("\n");
             if (strcmp(*l->seq[i], "jobs") == 0) {
                 print_list_proc(bg);
                 break;
@@ -246,37 +234,28 @@ int main() {
                 case 0:
                 if(len_l > 1) {
                     if(i > 0) { //stdin
-                        fprintf(stderr, "redirection in %d %d \n", pipefd[0][0], pipefd[0][1]);
                         dup2(pipefd[0][0], 0);
                         close(pipefd[0][0]);
                         close(pipefd[0][1]);
                     }
-                    if(i < len_l - 1) { //stdout
-                        fprintf(stderr, "redirection out %d %d \n", pipefd[1][0], pipefd[1][1]);
-                        dup2(pipefd[1][1], 1);
-                    }
+                    //stdout
+                    if(i < len_l - 1) dup2(pipefd[1][1], 1);
                 }
                 if(!i && l->in) dup2(f_in, 0);
-                if(i == len_l - 1 && l->out)
-                { ;
-                    fprintf(stderr,"OK! %d\n", dup2(f_out, 1));}
+                if(i == len_l - 1 && l->out) dup2(f_out, 1);
                 if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
                     perror("execvp");
                     exit(EXIT_FAILURE);
                 }
                 default:
                 {
-                    wait_pid = pid;
+                    if(!l->bg) add_list_proc(&fg, *(l->seq[0]),pid);
                     if (len_l > 1 && i > 0) {
                         close(pipefd[0][0]);
                         close(pipefd[0][1]);
                     }
-                    printf("%d, je suis ton père\n", pid);
-                    if(!l->bg && i == len_l - 1) {
-                        while(wait_pid) pause();
-                    }
-                    if(l->bg)
-                    add_list_proc(&bg, *(l->seq[0]), pid);
+                    if(!l->bg && i == len_l - 1) while(fg) pause();
+                    if(l->bg) add_list_proc(&bg, *(l->seq[0]), pid);
                 }
             }
         }
