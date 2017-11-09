@@ -22,18 +22,19 @@
 #error "Variante non défini !!"
 #endif
 
-typedef struct list_bg {
+typedef struct list_proc {
     pid_t pid;
     char* cmd;
-    struct list_bg * next;
-} list_bg;
+    struct list_proc * next;
+} list_proc;
 
-static list_bg *bg = NULL;
+static list_proc *bg = NULL;
+static list_proc *fg = NULL;
 static int wait_pid = 0;
 
-void add_bg(list_bg **l, char* cmd, pid_t pid) {
-    list_bg *e;
-    e = malloc(sizeof(list_bg));
+void add_list_proc(list_proc **l, char* cmd, pid_t pid) {
+    list_proc *e;
+    e = malloc(sizeof(list_proc));
     e->cmd = malloc(sizeof(char) * strlen(&cmd[0]));
     strcpy(e->cmd, &cmd[0]);
     e->pid = pid;
@@ -41,36 +42,36 @@ void add_bg(list_bg **l, char* cmd, pid_t pid) {
     *l = e;
 }
 
-void rm_bg(list_bg *l, pid_t pid) {
+void rm_list_proc(list_proc *l, pid_t pid) {
     if (l == NULL) return;
     if (l->pid == pid) {
-        list_bg *e = l;
+        list_proc *e = l;
         *l = *l->next;
         free(e);
         return;
     }
-    list_bg * current = l;
+    list_proc * current = l;
     while (current->next != NULL && current->next->pid != pid) {
         current = current->next;
     }
     if (current->next->pid == pid) {
-        list_bg *e = current;
+        list_proc *e = current;
         e->next = e->next->next;
         free(e);
     }
 }
 
-void print_bg(list_bg *bg) {
-    list_bg * current = bg;
+void print_list_proc(list_proc *bg) {
+    list_proc * current = bg;
     while (current != NULL) {
         printf("%d %s\n", current->pid, current->cmd);
         current = current->next;
     }
 }
 
-void refresh_bg(list_bg **bg, pid_t r) {
-    struct list_bg *current = *bg;
-    struct list_bg *prev = NULL;
+void refresh_list_proc(list_proc **bg, pid_t r) {
+    struct list_proc *current = *bg;
+    struct list_proc *prev = NULL;
     while(current != NULL) {
         if (r == current->pid) {
             printf("+ %s : done [%d]\n", current->cmd, current->pid);
@@ -120,7 +121,7 @@ SCM executer_wrapper(SCM x)
 
 void handler_child_exit(int sig) {
     int pid = wait(NULL);
-    refresh_bg(&bg, pid);
+    refresh_list_proc(&bg, pid);
     signal(SIGCHLD, handler_child_exit);
     wait_pid *= wait_pid!=pid;
 }
@@ -224,7 +225,7 @@ int main() {
             }
             printf("\n");
             if (strcmp(*l->seq[i], "jobs") == 0) {
-                print_bg(bg);
+                print_list_proc(bg);
                 break;
             }
             if(len_l > 1) {
@@ -275,7 +276,7 @@ int main() {
                         while(wait_pid) pause();
                     }
                     if(l->bg)
-                    add_bg(&bg, *(l->seq[0]), pid);
+                    add_list_proc(&bg, *(l->seq[0]), pid);
                 }
             }
         }
