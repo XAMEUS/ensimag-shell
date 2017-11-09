@@ -31,7 +31,7 @@ typedef struct list_proc {
 static list_proc *l_bg = NULL;
 static list_proc *l_fg = NULL;
 
-void executecommand(char **cmd, int i, int len_l, int bg, int pipefd[2][2], int *f_in, int *f_out);
+void executecommand(char **cmd, int i, int max_i, int bg, int (*pipefd)[2][2], int *f_in, int *f_out);
 
 void add_list_proc(list_proc **l, char* cmd, pid_t pid) {
     list_proc *e;
@@ -106,9 +106,8 @@ int question6_executer(char *line)
     * parsecmd, then fork+execvp, for a single command.
     * pipe and i/o redirection are not required.
     */
-    // printf("Not implemented yet: can not execute %s\n", line);
-    int pipefd[2][2];
-    executecommand(parsecmd(&line)->seq[0], 1, 1, 0, pipefd, NULL, NULL);
+    int a = parsecmd(&line)->seq[0];
+    executecommand(parsecmd(&line)->seq[0], 1, 1, 0, NULL, NULL, NULL);
     /* Remove this line when using parsecmd as it will free it */
     // free(line);
 
