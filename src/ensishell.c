@@ -106,7 +106,7 @@ int question6_executer(char *line)
     * parsecmd, then fork+execvp, for a single command.
     * pipe and i/o redirection are not required.
     */
-    printf("Not implemented yet: can not execute %s\n", line);
+    // printf("Not implemented yet: can not execute %s\n", line);
     int pipefd[2][2];
     executecommand(parsecmd(&line)->seq[0], 1, 1, 0, pipefd, NULL, NULL);
     /* Remove this line when using parsecmd as it will free it */
