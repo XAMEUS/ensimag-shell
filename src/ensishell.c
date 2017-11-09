@@ -28,14 +28,14 @@ typedef struct list_proc {
     struct list_proc * next;
 } list_proc;
 
-static list_proc *bg = NULL;
-static list_proc *fg = NULL;
+static list_proc *l_bg = NULL;
+static list_proc *l_fg = NULL;
 
 void add_list_proc(list_proc **l, char* cmd, pid_t pid) {
     list_proc *e;
     e = malloc(sizeof(list_proc));
-    e->cmd = malloc(sizeof(char) * strlen(&cmd[0]));
-    strcpy(e->cmd, &cmd[0]);
+    e->cmd = malloc(sizeof(char) * (strlen(&cmd[0]) + 1));
+    strncpy(e->cmd, &cmd[0], strlen(&cmd[0]) + 1);
     e->pid = pid;
     e->next = *l;
     *l = e;
@@ -105,9 +105,10 @@ int question6_executer(char *line)
     * pipe and i/o redirection are not required.
     */
     printf("Not implemented yet: can not execute %s\n", line);
-
+    int pipefd[2][2];
+    executecommand(parsecmd(line), 1, 1, 0, pipefd, NULL, NULL);
     /* Remove this line when using parsecmd as it will free it */
-    free(line);
+    // free(line);
 
     return 0;
 }
@@ -120,8 +121,8 @@ SCM executer_wrapper(SCM x)
 
 void handler_child_exit(int sig) {
     int pid = wait(NULL);
-    refresh_list_proc(&bg, pid);
-    refresh_list_proc(&fg, pid);
+    refresh_list_proc(&l_bg, pid);
+    refresh_list_proc(&l_fg, pid);
     signal(SIGCHLD, handler_child_exit);
 }
 
@@ -136,6 +137,40 @@ void terminate(char *line) {
     exit(0);
 }
 
+void executecommand(char **cmd, int i, int len_l, int bg, int pipefd[2][2], int *f_in, int *f_out) {
+    pid_t pid;
+    switch(pid = fork()) {
+        case -1:
+        perror("fork");
+        break;
+        case 0:
+        if(len_l > 1) {
+            if(i > 0) { //stdin
+                dup2(pipefd[0][0], 0);
+                close(pipefd[0][0]);
+                close(pipefd[0][1]);
+            }
+            //stdout
+            if(i < len_l - 1) dup2(pipefd[1][1], 1);
+        }
+        if(!i && f_in) dup2(*f_in, 0);
+        if(i == len_l - 1 && f_out) dup2(*f_out, 1);
+        if(execvp(*cmd, (char * const*) cmd) == -1 ) {
+            perror("execvp");
+            exit(EXIT_FAILURE);
+        }
+        default:
+        {
+            if(!bg) add_list_proc(&l_fg, *cmd,pid);
+            if (len_l > 1 && i > 0) {
+                close(pipefd[0][0]);
+                close(pipefd[0][1]);
+            }
+            if(!bg && i == len_l - 1) while(l_fg) pause();
+            if(bg) add_list_proc(&l_bg, *cmd, pid);
+        }
+    }
+}
 
 int main() {
     printf("Variante %d: %s\n", VARIANTE, VARIANTE_STRING);
@@ -147,7 +182,7 @@ int main() {
     /* register "executer" function in scheme */
     scm_c_define_gsubr("executer", 1, 0, 0, executer_wrapper);
     #endif
-    int f_in = 0, f_out = 0;
+    int *f_in = NULL, *f_out = NULL;
     while (1) {
         struct cmdline *l;
         char *line=0;
@@ -199,21 +234,27 @@ int main() {
 
         int pipefd[2][2];
         if(f_in) {
-            fsync(f_in);
-            close(f_in);
-            f_in = 0;
+            fsync(*f_in);
+            close(*f_in);
+            *f_in = 0;
         }
         if(f_out) {
-            fsync(f_out);
-            close(f_out);
-            f_out = 0;
+            fsync(*f_out);
+            close(*f_out);
+            *f_out = 0;
         }
-        if(l->in) f_in = open(l->in, O_RDONLY);
-        if(l->out) f_out = open(l->out, O_WRONLY | O_CREAT, 0644);
+        if(l->in) {
+            f_in = malloc(sizeof(*f_in));
+            *f_in = open(l->in, O_RDONLY);
+        }
+        if(l->out) {
+            f_out = malloc(sizeof(*f_out));
+            *f_out = open(l->out, O_WRONLY | O_CREAT, 0644);
+        }
 
         for (i=0; l->seq[i]!=0; i++) {
             if (strcmp(*l->seq[i], "jobs") == 0) {
-                print_list_proc(bg);
+                print_list_proc(l_bg);
                 break;
             }
             if(len_l > 1) {
@@ -226,38 +267,15 @@ int main() {
                     break;
                 }
             }
-            pid_t pid;
-            switch(pid = fork()) {
-                case -1:
-                perror("fork");
-                break;
-                case 0:
-                if(len_l > 1) {
-                    if(i > 0) { //stdin
-                        dup2(pipefd[0][0], 0);
-                        close(pipefd[0][0]);
-                        close(pipefd[0][1]);
-                    }
-                    //stdout
-                    if(i < len_l - 1) dup2(pipefd[1][1], 1);
-                }
-                if(!i && l->in) dup2(f_in, 0);
-                if(i == len_l - 1 && l->out) dup2(f_out, 1);
-                if(execvp(*l->seq[i], (char * const*) l->seq[i]) == -1 ) {
-                    perror("execvp");
-                    exit(EXIT_FAILURE);
-                }
-                default:
-                {
-                    if(!l->bg) add_list_proc(&fg, *(l->seq[0]),pid);
-                    if (len_l > 1 && i > 0) {
-                        close(pipefd[0][0]);
-                        close(pipefd[0][1]);
-                    }
-                    if(!l->bg && i == len_l - 1) while(fg) pause();
-                    if(l->bg) add_list_proc(&bg, *(l->seq[0]), pid);
-                }
-            }
+            executecommand(l->seq[i], i, len_l, l->bg, pipefd, f_in, f_out);
+        }
+        if(f_in) {
+            free(f_in);
+            f_in = NULL;
+        }
+        if(f_out) {
+            free(f_out);
+            f_out = NULL;
         }
     }
 }
