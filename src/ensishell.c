@@ -70,14 +70,14 @@ void print_list_proc(list_proc *bg) {
     }
 }
 
-void refresh_list_proc(list_proc **bg, pid_t r) {
-    struct list_proc *current = *bg;
+void refresh_list_proc(list_proc **list, pid_t r, int bg) {
+    struct list_proc *current = *list;
     struct list_proc *prev = NULL;
     while(current != NULL) {
         if (r == current->pid) {
-            printf("+ %s : done [%d]\n", current->cmd, current->pid);
+            if(bg) printf("+ %s : done [%d]\n", current->cmd, current->pid);
             if(prev == NULL) {
-                *bg = current->next;
+                *list = current->next;
             } else {
                 prev->next = current->next;
             }
@@ -121,8 +121,8 @@ SCM executer_wrapper(SCM x)
 
 void handler_child_exit(int sig) {
     int pid = wait(NULL);
-    refresh_list_proc(&l_bg, pid);
-    refresh_list_proc(&l_fg, pid);
+    refresh_list_proc(&l_bg, pid, 1);
+    refresh_list_proc(&l_fg, pid, 0);
     signal(SIGCHLD, handler_child_exit);
 }
 
